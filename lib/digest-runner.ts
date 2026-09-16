@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { buildDemoDigest } from "@/lib/demo-data";
-import { sendDigestCard, digestSummary, isDigestEmpty } from "@/lib/feishu";
+import { feishuReady, sendDigestCard, digestSummary, isDigestEmpty } from "@/lib/feishu";
 import { collectDigest } from "@/lib/github";
 import {
   appendLog,
@@ -44,8 +44,10 @@ export async function sendCurrentDigest(trigger: SendTrigger, options?: { force?
   const now = new Date();
   const today = zonedDateKey(now, settings.schedule.timezone);
 
-  if (!settings.feishu.webhookUrl) {
-    throw new Error("还没有配置飞书机器人 Webhook。请先在「配置」页粘贴群机器人地址。");
+  if (!feishuReady(settings)) {
+    throw new Error(
+      "还没有配置飞书。请在「配置」页填写开放平台 App ID / App Secret，或自定义机器人 Webhook。",
+    );
   }
 
   if (!options?.force && trigger === "schedule") {
@@ -102,8 +104,8 @@ export async function runScheduledTick() {
   if (!settings.schedule.enabled) {
     return { ok: true, skipped: true, reason: "scheduler-disabled" };
   }
-  if (!settings.feishu.webhookUrl) {
-    return { ok: true, skipped: true, reason: "no-webhook" };
+  if (!feishuReady(settings)) {
+    return { ok: true, skipped: true, reason: "no-feishu" };
   }
   const now = new Date();
   if (!isWithinScheduleWindow(now, settings.schedule, 1)) {

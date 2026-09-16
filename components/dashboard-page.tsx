@@ -53,9 +53,9 @@ export function DashboardPage({
     setSending(true);
     setSendError(null);
     try {
-      if (!status.webhookConfigured) {
+      if (!status.webhookConfigured && !status.feishuConfigured) {
         throw new Error(
-          "还没有配置飞书机器人 Webhook。请先到「配置」页粘贴群机器人地址。",
+          "还没有配置飞书。请先到「配置」页填写开放平台 App ID / App Secret。",
         );
       }
       const response = await fetch("/api/digest/send", { method: "POST" });
@@ -108,16 +108,16 @@ export function DashboardPage({
         </div>
       </div>
 
-      {!status.webhookConfigured ? (
+      {!(status.webhookConfigured || status.feishuConfigured) ? (
         <Alert>
           <AlertCircle className="size-4" />
           <AlertTitle>还没接入飞书群</AlertTitle>
           <AlertDescription>
-            现在点「立即推送到飞书」发不出去，需要先在「配置」里粘贴自定义机器人
-            Webhook。生产环境也可以不启动本机服务，改用 GitHub Actions。
+            现在点「立即推送到飞书」发不出去。请先在飞书开放平台创建应用机器人，拉进群后把
+            App ID / App Secret 填到「配置」页。生产环境用 GitHub Actions 每天自动发，不必挂本机服务。
             {" "}
-            <Link href="/settings" className="font-medium text-foreground">
-              去配置 Webhook
+            <Link href="/guide" className="font-medium text-foreground">
+              看完整部署步骤
             </Link>
           </AlertDescription>
         </Alert>
@@ -156,14 +156,16 @@ export function DashboardPage({
           icon={<Webhook className="size-4" />}
           label="飞书机器人"
           value={
-            status?.webhookConfigured ? "Webhook 已配置" : "还没接入群"
+            status?.webhookConfigured || status?.feishuConfigured
+              ? "机器人已配置"
+              : "还没接入群"
           }
           hint={
-            status?.webhookConfigured
+            status?.webhookConfigured || status?.feishuConfigured
               ? "可以向群里发卡片了"
-              : "去配置页粘贴自定义机器人地址"
+              : "去配置页填写开放平台 App ID / App Secret"
           }
-          ok={Boolean(status?.webhookConfigured)}
+          ok={Boolean(status?.webhookConfigured || status?.feishuConfigured)}
         />
         <StatusCard
           icon={<Clock3 className="size-4" />}

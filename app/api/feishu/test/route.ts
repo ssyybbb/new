@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sendTestMessage } from "@/lib/feishu";
+import { feishuReady, sendTestMessage } from "@/lib/feishu";
 import { getSettings } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -7,9 +7,12 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   try {
     const settings = await getSettings();
-    if (!settings.feishu.webhookUrl) {
+    if (!feishuReady(settings)) {
       return NextResponse.json(
-        { ok: false, message: "请先保存飞书 Webhook 地址。" },
+        {
+          ok: false,
+          message: "请先保存飞书开放平台 App ID / App Secret，或自定义机器人 Webhook。",
+        },
         { status: 400 },
       );
     }

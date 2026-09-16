@@ -19,12 +19,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: 检查飞书 Webhook
+      - name: 检查飞书配置
         env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
         run: |
-          if [ -z "$FEISHU_WEBHOOK_URL" ]; then
-            echo "::error::请在仓库 Settings → Secrets and variables → Actions 里添加 FEISHU_WEBHOOK_URL。飞书机器人不会自己拉 GitHub，需要这次定时任务去推。"
+          if [ -z "$FEISHU_APP_ID" ] && [ -z "$FEISHU_WEBHOOK_URL" ]; then
+            echo "::error::请配置 FEISHU_APP_ID + FEISHU_APP_SECRET（开放平台应用），或 FEISHU_WEBHOOK_URL（自定义机器人）。"
             exit 1
           fi
       - name: 推送开源日报到飞书
@@ -32,6 +33,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.OSS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           GITHUB_ORG: ${{ vars.GITHUB_ORG }}
           GITHUB_REPOS: ${{ vars.GITHUB_REPOS }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
           DIGEST_TITLE: ${{ vars.DIGEST_TITLE }}

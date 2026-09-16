@@ -48,6 +48,9 @@ function formFromSettings(data: PublicSettings) {
     githubToken: "",
     webhookUrl: "",
     secret: "",
+    appId: "",
+    appSecret: "",
+    chatId: data.feishu.chatId ?? "",
     scheduleEnabled: data.schedule.enabled,
     timezone: data.schedule.timezone,
     hour: data.schedule.hour,
@@ -59,6 +62,7 @@ function formFromSettings(data: PublicSettings) {
 export function SettingsPage({ initialSettings }: { initialSettings: PublicSettings }) {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [listingChats, setListingChats] = useState(false);
   const [form, setForm] = useState(() => formFromSettings(initialSettings));
   const [meta, setMeta] = useState(initialSettings.feishu);
   const [tokenMeta, setTokenMeta] = useState({
@@ -91,6 +95,9 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
           feishu: {
             webhookUrl: form.webhookUrl ? form.webhookUrl : UNCHANGED,
             secret: form.secret ? form.secret : UNCHANGED,
+            appId: form.appId ? form.appId : UNCHANGED,
+            appSecret: form.appSecret ? form.appSecret : UNCHANGED,
+            chatId: form.chatId,
           },
           schedule: {
             enabled: form.scheduleEnabled,
@@ -122,7 +129,9 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
   async function sendTest() {
     setTesting(true);
     try {
-      if (form.webhookUrl) await save();
+      if (form.appId || form.appSecret || form.webhookUrl || form.chatId) {
+        await save();
+      }
       const response = await fetch("/api/feishu/test", { method: "POST" });
       const data = (await response.json()) as { ok?: boolean; message?: string };
       if (!response.ok || !data.ok) {
@@ -136,65 +145,176 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
     }
   }
 
+  async function loadChats() {
+    setListingChats(true);
+    try {
+      if (form.appId || form.appSecret) await save();
+      const response = await fetch("/api/feishu/chats", { cache: "no-store" });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+        chats?: { chatId: string; name: string }[];
+      };
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message ?? "读取群列表失败");
+      }
+      const chats = data.chats ?? [];
+      if (chats.length === 0) {
+        throw new Error("机器人还没有加入任何群。请先在目标群里添加这个应用。");
+      }
+      if (chats.length === 1) {
+        setForm((current) => ({ ...current, chatId: chats[0].chatId }));
+        toast.success(`已填入群「${chats[0].name}」`);
+        return;
+      }
+      toast.message(
+        `机器人在 ${chats.length} 个群：${chats.map((chat) => `${chat.name}（${chat.chatId}）`).join("、")}`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "读取群列表失败");
+    } finally {
+      setListingChats(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">配置</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          在飞书群添加自定义机器人，再填入 GitHub 组织或仓库，就可以每天推送开源动态。
+          在飞书开放平台创建应用机器人，拉进群后填 App ID / App Secret。每天由
+          GitHub Actions 推送，不必一直开着本机服务。
         </p>
       </div>
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>1. 飞书群机器人</CardTitle>
+          <CardTitle>1. 飞书开放平台应用</CardTitle>
           <CardDescription>
-            打开目标群 → 设置 → 群机器人 → 添加自定义机器人，复制 Webhook
-            地址。如果开启了「签名校验」，把密钥一并填上。
+            打开
+            <a
+              className="mx-1 font-medium text-foreground underline-offset-4 hover:underline"
+              href="https://open.feishu.cn/app"
+              target="_blank"
+              rel="noreferrer"
+            >
+              飞书开放平台
+            </a>
+            创建企业自建应用，开通「机器人」能力并发布。把机器人拉进目标群后，把凭证填在下面。
+            <Link href="/guide" className="ml-1 font-medium text-foreground underline-offset-4 hover:underline">
+              完整步骤
+            </Link>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Field label="Webhook 地址">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="App ID">
+              <Input
+                autoComplete="off"
+                placeholder={
+                  meta?.appConfigured
+                    ? meta.appFromEnv
+                      ? "已通过环境变量 FEISHU_APP_ID 配置"
+                      : `已保存 ${meta.appIdMasked}`
+                    : "cli_…"
+                }
+                value={form.appId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, appId: event.target.value }))
+                }
+              />
+            </Field>
+            <Field label="App Secret">
+              <Input
+                type="password"
+                autoComplete="off"
+                placeholder={
+                  meta?.appSecretConfigured
+                    ? "已保存，留空表示不修改"
+                    : "应用凭证里的 App Secret"
+                }
+                value={form.appSecret}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    appSecret: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+          </div>
+          <Field label="群 Chat ID（机器人只在一个群时可留空）">
             <Input
-              type="password"
               autoComplete="off"
               placeholder={
-                meta?.webhookConfigured
-                  ? meta.webhookFromEnv
-                    ? "已通过环境变量 FEISHU_WEBHOOK_URL 配置"
-                    : `已保存 ${meta.webhookUrlMasked}`
-                  : "https://open.feishu.cn/open-apis/bot/v2/hook/…"
+                meta?.chatIdFromEnv
+                  ? "已通过环境变量 FEISHU_CHAT_ID 配置"
+                  : "oc_… 可点下方按钮自动读取"
               }
-              value={form.webhookUrl}
+              value={form.chatId}
               onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  webhookUrl: event.target.value,
-                }))
+                setForm((current) => ({ ...current, chatId: event.target.value }))
               }
             />
           </Field>
-          <Field label="签名密钥（可选）">
-            <Input
-              type="password"
-              autoComplete="off"
-              placeholder={
-                meta?.secretConfigured
-                  ? meta.secretFromEnv
-                    ? "已通过环境变量配置"
-                    : "已保存，留空表示不修改"
-                  : "未开启签名校验可留空"
-              }
-              value={form.secret}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, secret: event.target.value }))
-              }
-            />
-          </Field>
-          <Button variant="outline" onClick={() => void sendTest()} disabled={testing}>
-            {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            发送测试消息
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void loadChats()}
+              disabled={listingChats}
+            >
+              {listingChats ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : null}
+              读取机器人所在的群
+            </Button>
+            <Button variant="outline" onClick={() => void sendTest()} disabled={testing}>
+              {testing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              发送测试消息
+            </Button>
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-sm font-medium">备用：群自定义机器人 Webhook</p>
+            <p className="text-xs text-muted-foreground">
+              如果走开放平台应用，下面可以不填。只想用群里「添加自定义机器人」时才需要。
+            </p>
+            <Field label="Webhook 地址">
+              <Input
+                type="password"
+                autoComplete="off"
+                placeholder={
+                  meta?.webhookConfigured
+                    ? meta.webhookFromEnv
+                      ? "已通过环境变量 FEISHU_WEBHOOK_URL 配置"
+                      : `已保存 ${meta.webhookUrlMasked}`
+                    : "https://open.feishu.cn/open-apis/bot/v2/hook/…"
+                }
+                value={form.webhookUrl}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    webhookUrl: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="签名密钥（可选）">
+              <Input
+                type="password"
+                autoComplete="off"
+                placeholder={
+                  meta?.secretConfigured
+                    ? "已保存，留空表示不修改"
+                    : "未开启签名校验可留空"
+                }
+                value={form.secret}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, secret: event.target.value }))
+                }
+              />
+            </Field>
+          </div>
         </CardContent>
       </Card>
 

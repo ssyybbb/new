@@ -22,7 +22,13 @@ export async function PUT(request: Request) {
     };
     maxItemsPerSection?: number;
     githubToken?: string;
-    feishu?: { webhookUrl?: string; secret?: string };
+    feishu?: {
+      webhookUrl?: string;
+      secret?: string;
+      appId?: string;
+      appSecret?: string;
+      chatId?: string;
+    };
     schedule?: {
       enabled?: boolean;
       timezone?: string;
@@ -64,6 +70,14 @@ export async function PUT(request: Request) {
               : body.feishu.webhookUrl,
           secret:
             body.feishu.secret === undefined ? UNCHANGED : body.feishu.secret,
+          appId:
+            body.feishu.appId === undefined ? UNCHANGED : body.feishu.appId,
+          appSecret:
+            body.feishu.appSecret === undefined
+              ? UNCHANGED
+              : body.feishu.appSecret,
+          chatId:
+            body.feishu.chatId === undefined ? UNCHANGED : body.feishu.chatId,
         }
       : undefined,
     schedule: body.schedule,
@@ -71,7 +85,10 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      webhookConfigured: Boolean(settings.feishu.webhookUrl),
+      webhookConfigured: Boolean(
+        settings.feishu.webhookUrl ||
+          (settings.feishu.appId && settings.feishu.appSecret),
+      ),
       githubConfigured: Boolean(
         settings.sources.org || settings.sources.repos.length,
       ),

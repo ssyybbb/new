@@ -1,4 +1,5 @@
 import { previewDigest } from "@/lib/digest-runner";
+import { feishuReady } from "@/lib/feishu";
 import { getSettings, readLogs } from "@/lib/store";
 import { formatZhDateTime, nextRunAt } from "@/lib/time";
 import type { DashboardStatus, Digest } from "@/lib/types";
@@ -17,7 +18,8 @@ export async function getDashboardPayload(): Promise<{
   return {
     digest,
     status: {
-      webhookConfigured: Boolean(settings.feishu.webhookUrl),
+      webhookConfigured: feishuReady(settings),
+      feishuConfigured: feishuReady(settings),
       githubConfigured: Boolean(
         settings.sources.mode === "org"
           ? settings.sources.org

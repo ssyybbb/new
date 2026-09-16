@@ -155,7 +155,7 @@ export function buildTestCard() {
           text: {
             tag: "lark_md",
             content:
-              "群里的自定义机器人已经可以收到消息。之后会按设定时间，把公司开源仓库的 **Issue** 和 **PR** 汇总推到这里。",
+              "机器人已经可以往这个群发消息。之后会按设定时间，把公司开源仓库的 **Issue** 和 **PR** 汇总推到这里。",
           },
         },
         {
@@ -225,18 +225,130 @@ export async function postToFeishu(
   return json;
 }
 
+export function feishuReady(settings: AppSettings) {
+  return Boolean(
+    (settings.feishu.appId && settings.feishu.appSecret) ||
+      settings.feishu.webhookUrl,
+  );
+}
+
+function openBase() {
+  return (process.env.FEISHU_BASE_URL || "https://open.feishu.cn").replace(
+    /\/$/,
+    "",
+  );
+}
+
+type FeishuApiResponse = {
+  code?: number;
+  msg?: string;
+  tenant_access_token?: string;
+  data?: {
+    items?: { chat_id: string; name?: string }[];
+    message_id?: string;
+  };
+};
+
+async function feishuApi(
+  path: string,
+  init: RequestInit & { token?: string } = {},
+) {
+  const { token, headers, ...rest } = init;
+  const response = await fetch(`${openBase()}${path}`, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+  });
+  const json = (await response.json()) as FeishuApiResponse;
+  if ((json.code ?? (response.ok ? 0 : -1)) !== 0) {
+    throw new Error(json.msg || `飞书接口失败（${json.code ?? response.status}）`);
+  }
+  return json;
+}
+
+async function getTenantAccessToken(appId: string, appSecret: string) {
+  const json = await feishuApi("/open-apis/auth/v3/tenant_access_token/internal", {
+    method: "POST",
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  if (!json.tenant_access_token) {
+    throw new Error("飞书没有返回 tenant_access_token，请检查 App ID / App Secret。");
+  }
+  return json.tenant_access_token;
+}
+
+export async function listFeishuChats(settings: AppSettings) {
+  if (!settings.feishu.appId || !settings.feishu.appSecret) {
+    throw new Error("请先填写飞书开放平台的 App ID 和 App Secret。");
+  }
+  const token = await getTenantAccessToken(
+    settings.feishu.appId,
+    settings.feishu.appSecret,
+  );
+  const json = await feishuApi("/open-apis/im/v1/chats?page_size=50", { token });
+  return (json.data?.items ?? []).map((item) => ({
+    chatId: item.chat_id,
+    name: item.name || item.chat_id,
+  }));
+}
+
+async function resolveChatId(settings: AppSettings, token: string) {
+  if (settings.feishu.chatId) return settings.feishu.chatId;
+  const json = await feishuApi("/open-apis/im/v1/chats?page_size=50", { token });
+  const chats = json.data?.items ?? [];
+  if (chats.length === 0) {
+    throw new Error(
+      "机器人还没有加入任何群。请在目标群里添加这个应用，然后再试。",
+    );
+  }
+  if (chats.length === 1) return chats[0].chat_id;
+  const names = chats
+    .map((chat) => `${chat.name || "未命名"}（${chat.chat_id}）`)
+    .join("、");
+  throw new Error(`机器人在多个群里，请填写 Chat ID。当前所在群：${names}`);
+}
+
+async function sendCardViaApp(settings: AppSettings, card: unknown) {
+  const token = await getTenantAccessToken(
+    settings.feishu.appId,
+    settings.feishu.appSecret,
+  );
+  const chatId = await resolveChatId(settings, token);
+  await feishuApi(`/open-apis/im/v1/messages?receive_id_type=chat_id`, {
+    method: "POST",
+    token,
+    body: JSON.stringify({
+      receive_id: chatId,
+      msg_type: "interactive",
+      content: JSON.stringify(card),
+    }),
+  });
+}
+
+async function sendPayload(settings: AppSettings, payload: { msg_type: string; card: unknown }) {
+  if (settings.feishu.appId && settings.feishu.appSecret) {
+    await sendCardViaApp(settings, payload.card);
+    return;
+  }
+  if (settings.feishu.webhookUrl) {
+    await postToFeishu(settings.feishu.webhookUrl, settings.feishu.secret, payload);
+    return;
+  }
+  throw new Error(
+    "还没有配置飞书。请填写开放平台 App ID / App Secret，或自定义机器人 Webhook。",
+  );
+}
+
 export async function sendDigestCard(settings: AppSettings, digest: Digest) {
-  const card = buildFeishuCard(settings, digest);
-  await postToFeishu(settings.feishu.webhookUrl, settings.feishu.secret, {
+  await sendPayload(settings, {
     msg_type: "interactive",
-    card,
+    card: buildFeishuCard(settings, digest),
   });
 }
 
 export async function sendTestMessage(settings: AppSettings) {
-  await postToFeishu(
-    settings.feishu.webhookUrl,
-    settings.feishu.secret,
-    buildTestCard(),
-  );
+  await sendPayload(settings, buildTestCard());
 }

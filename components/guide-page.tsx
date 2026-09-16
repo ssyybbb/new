@@ -12,22 +12,28 @@ import {
 
 const secrets = [
   {
-    name: "FEISHU_WEBHOOK_URL",
+    name: "FEISHU_APP_ID",
     where: "Secrets",
     required: true,
-    note: "飞书群自定义机器人的 Webhook 完整地址",
+    note: "飞书开放平台应用凭证里的 App ID",
   },
   {
-    name: "FEISHU_WEBHOOK_SECRET",
+    name: "FEISHU_APP_SECRET",
+    where: "Secrets",
+    required: true,
+    note: "飞书开放平台应用凭证里的 App Secret",
+  },
+  {
+    name: "FEISHU_CHAT_ID",
     where: "Secrets",
     required: false,
-    note: "如果机器人开了签名校验，把密钥填在这里",
+    note: "目标群 Chat ID。机器人只在一个群时可省略",
   },
   {
     name: "OSS_GITHUB_TOKEN",
     where: "Secrets",
     required: false,
-    note: "跟踪私有仓库时需要。公开仓库可省略，Actions 会用自带的 GITHUB_TOKEN",
+    note: "跟踪私有仓库时需要。公开仓库可省略",
   },
   {
     name: "GITHUB_ORG",
@@ -41,76 +47,79 @@ const secrets = [
     required: false,
     note: "指定仓库，空格或逗号分隔，例如 acme/sdk acme/cli",
   },
-  {
-    name: "DIGEST_TITLE",
-    where: "Variables",
-    required: false,
-    note: "卡片标题，默认「开源日报」",
-  },
 ];
 
 export function GuidePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">定时推送</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">部署流程</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          不需要一直开着电脑。飞书群机器人只负责收消息，每天由 GitHub Actions
-          去拉 Issue / PR 再推到群里。
+          飞书开放平台负责「机器人能进群、能发消息」；GitHub Actions
+          负责「每天去拉 Issue / PR 再推到群」。两边都要配，缺一不可。
         </p>
       </div>
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>为什么飞书不能自己发？</CardTitle>
-          <CardDescription>
-            群里添加的是「自定义机器人」。它提供一个 Webhook：只有外部程序
-            POST 过去，群里才会出现卡片。飞书不会去访问你们的 GitHub
-            仓库，也没有「每天统计开源动态」这种内置定时任务。
-          </CardDescription>
+          <CardTitle>整体在干什么</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
           <p>
-            所以要有一个定时触发器。推荐用本仓库自带的 GitHub
-            Actions：GitHub 的机器每天跑一次，跑完就退出，本地不用挂服务。
+            1. 你在飞书开放平台创建一个<strong className="text-foreground">应用机器人</strong>，发布后拉进群。
           </p>
           <p>
-            控制台（「今日日报 / 配置」）只是用来预览和调试。生产环境把下面 Secrets
-            配好即可。
+            2. 这个仓库里的 GitHub Actions 每天北京时间 09:00 启动一次，用 GitHub API
+            读开源仓库的 Issue / PR，再调用飞书发消息接口推到群。
+          </p>
+          <p>
+            飞书不会自己去访问 GitHub。所以不是「在飞书后台打开一个开关就自动发」，而是「飞书提供发消息能力，定时由 GitHub 来做」。
           </p>
         </CardContent>
       </Card>
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>1. 在飞书群添加自定义机器人</CardTitle>
+          <CardTitle>1. 飞书开放平台：创建应用并拉进群</CardTitle>
           <CardDescription>
-            打开目标群 → 设置 → 群机器人 → 添加自定义机器人，复制 Webhook。
+            打开
+            <a
+              className="mx-1 font-medium text-foreground underline-offset-4 hover:underline"
+              href="https://open.feishu.cn/app"
+              target="_blank"
+              rel="noreferrer"
+            >
+              https://open.feishu.cn/app
+            </a>
+            ，用公司飞书管理员或有权限的账号操作。
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm leading-6 text-muted-foreground">
-          官方说明：
-          <a
-            className="ml-1 font-medium text-foreground underline-offset-4 hover:underline"
-            href="https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot"
-            target="_blank"
-            rel="noreferrer"
-          >
-            自定义机器人使用指南
-          </a>
-          。这一步只是让群「能收消息」，不会开始定时发送。
+        <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
+          <p>1. 创建企业自建应用，名字例如「开源日报」。</p>
+          <p>2. 添加应用能力 → 开通「机器人」。可以设一个头像和描述。</p>
+          <p>
+            3. 权限管理里开通并申请：
+            <code className="mx-1 rounded bg-muted px-1 py-0.5 text-foreground">以应用身份发消息</code>
+            、
+            <code className="mx-1 rounded bg-muted px-1 py-0.5 text-foreground">获取群组信息</code>
+            （对应 <code className="rounded bg-muted px-1 text-foreground">im:message:send_as_bot</code>、
+            <code className="rounded bg-muted px-1 text-foreground">im:chat:read</code>）。
+          </p>
+          <p>4. 版本管理与发布 → 创建版本 → 提交发布。企业自建应用通常要管理员审一次。</p>
+          <p>5. 发布通过后，打开目标飞书群 → 设置 → 群机器人 → 添加刚刚那个应用。</p>
+          <p>6. 回到开放平台「凭证与基础信息」，复制 App ID 和 App Secret。</p>
         </CardContent>
       </Card>
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>2. 把项目放到 GitHub，填仓库密钥</CardTitle>
+          <CardTitle>2. GitHub：把密钥交给 Actions</CardTitle>
           <CardDescription>
-            打开仓库 → Settings → Secrets and variables → Actions。工作流文件已经在
+            工作流已经在
             <code className="mx-1 rounded bg-muted px-1 py-0.5 text-foreground">
               .github/workflows/daily-digest.yml
             </code>
-            ，默认每天北京时间 09:00 运行。
+            。在仓库 Settings → Secrets and variables → Actions 里添加下面这些。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -132,28 +141,21 @@ export function GuidePage() {
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
-            至少配置 <span className="font-medium text-foreground">FEISHU_WEBHOOK_URL</span>，以及{" "}
-            <span className="font-medium text-foreground">GITHUB_ORG</span> 或{" "}
-            <span className="font-medium text-foreground">GITHUB_REPOS</span>。
+            App ID / App Secret 是密钥，只能你在飞书后台复制后自己贴进 GitHub。我这边看不到飞书账号，也不能替你写入 GitHub Secrets。
           </p>
         </CardContent>
       </Card>
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>3. 立刻试跑一次</CardTitle>
+          <CardTitle>3. 试跑一次，之后每天自动发</CardTitle>
           <CardDescription>
-            打开仓库 Actions →「每日开源日报」→ Run workflow。成功后飞书群会收到一张日报卡片。之后每天定时自动跑，电脑可以关机。
+            仓库 Actions →「每日开源日报」→ Run workflow。群里收到卡片就说明通了。之后默认每天 09:00（北京时间）自动跑。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
           <p>
-            GitHub 的定时任务可能比整点晚几分钟，这是平台限制，不是机器人坏了。公开仓库如果超过 60
-            天没有任何提交，GitHub 可能会暂停 schedule，再 push 一次即可恢复。
-          </p>
-          <p>
-            想改点名时间：编辑工作流里的 cron。例如北京时间 18:00 对应 UTC 10:00，写成{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-foreground">0 10 * * *</code>。
+            本机控制台只用来预览和调试。配好 GitHub Actions 之后，电脑可以关机。
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <CopyButton value="0 1 * * *" label="复制默认 cron" />
@@ -161,7 +163,7 @@ export function GuidePage() {
               href="/settings"
               className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
             >
-              仍要在本机预览？去配置页
+              先在本机填凭证并发送测试消息
             </Link>
           </div>
         </CardContent>

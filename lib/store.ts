@@ -29,6 +29,9 @@ export const defaultSettings = (): AppSettings => ({
   feishu: {
     webhookUrl: "",
     secret: "",
+    appId: "",
+    appSecret: "",
+    chatId: "",
   },
   schedule: {
     enabled: true,
@@ -63,6 +66,11 @@ function parseRepoList(value: string | undefined) {
 function envSettingsOverlay(base: AppSettings): AppSettings {
   const next: AppSettings = structuredClone(base);
   if (process.env.GITHUB_TOKEN) next.githubToken = process.env.GITHUB_TOKEN;
+  if (process.env.FEISHU_APP_ID) next.feishu.appId = process.env.FEISHU_APP_ID;
+  if (process.env.FEISHU_APP_SECRET) {
+    next.feishu.appSecret = process.env.FEISHU_APP_SECRET;
+  }
+  if (process.env.FEISHU_CHAT_ID) next.feishu.chatId = process.env.FEISHU_CHAT_ID;
   if (process.env.FEISHU_WEBHOOK_URL) {
     next.feishu.webhookUrl = process.env.FEISHU_WEBHOOK_URL;
   }
@@ -124,6 +132,9 @@ export type SettingsPatch = {
   feishu?: {
     webhookUrl?: string;
     secret?: string;
+    appId?: string;
+    appSecret?: string;
+    chatId?: string;
   };
   schedule?: Partial<AppSettings["schedule"]>;
 };
@@ -152,6 +163,18 @@ export async function saveSettings(patch: SettingsPatch) {
   if (patch.feishu?.secret === UNCHANGED || patch.feishu?.secret === undefined) {
     next.feishu.secret = current.feishu.secret;
   }
+  if (patch.feishu?.appId === UNCHANGED || patch.feishu?.appId === undefined) {
+    next.feishu.appId = current.feishu.appId;
+  }
+  if (
+    patch.feishu?.appSecret === UNCHANGED ||
+    patch.feishu?.appSecret === undefined
+  ) {
+    next.feishu.appSecret = current.feishu.appSecret;
+  }
+  if (patch.feishu?.chatId === UNCHANGED || patch.feishu?.chatId === undefined) {
+    next.feishu.chatId = current.feishu.chatId;
+  }
 
   next.sources.org = next.sources.org.trim();
   next.sources.repos = next.sources.repos
@@ -171,6 +194,9 @@ export async function saveSettings(patch: SettingsPatch) {
   next.githubToken = next.githubToken.trim();
   next.feishu.webhookUrl = next.feishu.webhookUrl.trim();
   next.feishu.secret = next.feishu.secret.trim();
+  next.feishu.appId = next.feishu.appId.trim();
+  next.feishu.appSecret = next.feishu.appSecret.trim();
+  next.feishu.chatId = next.feishu.chatId.trim();
   if (next.feishu.webhookUrl) {
     assertWebhook(next.feishu.webhookUrl);
   }
@@ -215,6 +241,16 @@ export async function getPublicSettings(): Promise<PublicSettings> {
       webhookFromEnv: Boolean(process.env.FEISHU_WEBHOOK_URL),
       secretConfigured: Boolean(settings.feishu.secret),
       secretFromEnv: Boolean(process.env.FEISHU_WEBHOOK_SECRET),
+      appIdMasked: maskSecret(settings.feishu.appId),
+      appConfigured: Boolean(settings.feishu.appId && settings.feishu.appSecret),
+      appFromEnv: Boolean(process.env.FEISHU_APP_ID),
+      appSecretConfigured: Boolean(settings.feishu.appSecret),
+      chatId: settings.feishu.chatId,
+      chatIdFromEnv: Boolean(process.env.FEISHU_CHAT_ID),
+      ready: Boolean(
+        (settings.feishu.appId && settings.feishu.appSecret) ||
+          settings.feishu.webhookUrl,
+      ),
     },
   };
 }

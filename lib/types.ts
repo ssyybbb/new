@@ -21,6 +21,9 @@ export type AppSettings = {
   feishu: {
     webhookUrl: string;
     secret: string;
+    appId: string;
+    appSecret: string;
+    chatId: string;
   };
   schedule: {
     enabled: boolean;
@@ -40,6 +43,13 @@ export type PublicSettings = Omit<AppSettings, "githubToken" | "feishu"> & {
     webhookFromEnv: boolean;
     secretConfigured: boolean;
     secretFromEnv: boolean;
+    appIdMasked: string;
+    appConfigured: boolean;
+    appFromEnv: boolean;
+    appSecretConfigured: boolean;
+    chatId: string;
+    chatIdFromEnv: boolean;
+    ready: boolean;
   };
 };
 
@@ -92,6 +102,7 @@ export type SendLog = {
 export const UNCHANGED = "__UNCHANGED__";
 
 export type DashboardStatus = {
+  feishuConfigured: boolean;
   webhookConfigured: boolean;
   githubConfigured: boolean;
   scheduleEnabled: boolean;
