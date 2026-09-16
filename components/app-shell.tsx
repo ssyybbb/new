@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, History, Settings2, Sparkles } from "lucide-react";
+import { BookOpen, Cloud, History, Settings2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "今日日报", icon: BookOpen },
+  { href: "/guide", label: "定时推送", icon: Cloud },
   { href: "/settings", label: "配置", icon: Settings2 },
   { href: "/logs", label: "推送记录", icon: History },
 ] as const;

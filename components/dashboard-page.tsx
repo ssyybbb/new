@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { DigestView } from "@/components/digest-view";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { DashboardStatus, Digest } from "@/lib/types";
@@ -75,7 +75,8 @@ export function DashboardPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">今日日报</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            汇总开源仓库最近的 Issue 和 PR，定时发到飞书群。
+            飞书群机器人不会自己去拉 GitHub。推荐用 GitHub Actions
+            每天自动推送，本地不用挂服务。
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -97,6 +98,21 @@ export function DashboardPage({
           </Button>
         </div>
       </div>
+
+      <Card className="bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle>不需要一直开着电脑</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-6 text-muted-foreground">
+          <p>
+            飞书自定义机器人只能收消息，不会定时去扫你们的开源仓库。把这个项目放到
+            GitHub，填上 Webhook 和仓库信息后，Actions 会在每天 09:00（北京时间）自动发到群里。
+          </p>
+          <Link href="/guide" className={buttonVariants()}>
+            查看 GitHub Actions 接入步骤
+          </Link>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 md:grid-cols-3">
         <StatusCard
@@ -120,11 +136,7 @@ export function DashboardPage({
               ? status.nextRunLabel.replace(/星期./, "")
               : "已关闭"
           }
-          hint={
-            status
-              ? `${status.timezone} · 每天 ${status.sendTime}`
-              : "加载中"
-          }
+          hint="这是本机预览用的时刻。真正每天自动发请看「定时推送」"
           ok={Boolean(status?.scheduleEnabled)}
         />
         <StatusCard

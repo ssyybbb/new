@@ -79,12 +79,18 @@ function envSettingsOverlay(base: AppSettings): AppSettings {
     next.sources.repos = envRepos;
   }
   if (process.env.DIGEST_TITLE) next.digestTitle = process.env.DIGEST_TITLE;
+  if (process.env.LOOKBACK_HOURS) {
+    const hours = Number(process.env.LOOKBACK_HOURS);
+    if (Number.isFinite(hours) && hours > 0) next.lookbackHours = hours;
+  }
   if (process.env.SCHEDULE_TZ) next.schedule.timezone = process.env.SCHEDULE_TZ;
   if (process.env.SCHEDULE_HOUR) {
-    next.schedule.hour = Number(process.env.SCHEDULE_HOUR);
+    const hour = Number(process.env.SCHEDULE_HOUR);
+    if (Number.isFinite(hour)) next.schedule.hour = hour;
   }
   if (process.env.SCHEDULE_MINUTE) {
-    next.schedule.minute = Number(process.env.SCHEDULE_MINUTE);
+    const minute = Number(process.env.SCHEDULE_MINUTE);
+    if (Number.isFinite(minute)) next.schedule.minute = minute;
   }
   return next;
 }

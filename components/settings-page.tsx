@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -373,13 +374,18 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
         <CardHeader>
           <CardTitle>4. 每天定时推送</CardTitle>
           <CardDescription>
-            服务保持运行时，会在设定时刻自动发到飞书。也可以用 crontab 或 GitHub
-            Actions 调用 /api/cron。
+            生产环境请用 GitHub Actions，不必开着这台电脑。下面这两项只影响本机进程内定时，方便本地调试。
+            <Link
+              href="/guide"
+              className="ml-1 font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              查看无服务器接入步骤
+            </Link>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Toggle
-            label="启用每日定时推送"
+            label="启用本机进程内定时（需要服务一直运行）"
             checked={form.scheduleEnabled}
             onCheckedChange={(checked) =>
               setForm((current) => ({ ...current, scheduleEnabled: checked }))

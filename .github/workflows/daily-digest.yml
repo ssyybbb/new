@@ -1,9 +1,13 @@
-name: daily-oss-digest
+name: 每日开源日报
 
 on:
   schedule:
+    # 北京时间每天 09:00。GitHub 用 UTC，中国无夏令时。
     - cron: "0 1 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   send:
@@ -15,6 +19,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: 检查飞书 Webhook
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        run: |
+          if [ -z "$FEISHU_WEBHOOK_URL" ]; then
+            echo "::error::请在仓库 Settings → Secrets and variables → Actions 里添加 FEISHU_WEBHOOK_URL。飞书机器人不会自己拉 GitHub，需要这次定时任务去推。"
+            exit 1
+          fi
       - name: 推送开源日报到飞书
         env:
           GITHUB_TOKEN: ${{ secrets.OSS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
@@ -23,5 +35,6 @@ jobs:
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
           DIGEST_TITLE: ${{ vars.DIGEST_TITLE }}
+          LOOKBACK_HOURS: ${{ vars.LOOKBACK_HOURS }}
           SCHEDULE_TZ: Asia/Shanghai
         run: npm run digest:send
