@@ -62,12 +62,13 @@ export function GuidePage() {
         <CardHeader>
           <CardTitle>第 1 步：把这个项目存成 GitHub 仓库</CardTitle>
           <CardDescription>
-            在 Cursor 里找到「Create repo」按钮点一下，用你的 GitHub 账号新建仓库。建好后，这套代码就会出现在 github.com 你的账号下面。
+            按钮不在 GitHub 网站上，也不在这个预览页里。请回到 Cursor 里这次对话（任务名叫「飞书开源通知机器人」），看窗口最上方标题附近。
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
-          <p>建好后打开那个仓库，记住网址，后面要去 Settings 里填几项配置。</p>
-          <p>如果你已经建过仓库，可以跳过这一步，直接做第 2 步。</p>
+          <p>如果已经连接了 GitHub 账号，那里会出现一个创建仓库的按钮（英文可能是 Create repo）。点它，选你的 GitHub 账号，新建一个仓库。</p>
+          <p>如果完全没有这个按钮：先到 Cursor Settings → Integrations（或账号设置里的 GitHub）把 GitHub 登录连上，再回到这次对话。</p>
+          <p>也可以自己打开 github.com/new 新建空仓库。建好后把仓库网址发给我，我告诉你下一步怎么把代码放进去。</p>
         </CardContent>
       </Card>
 
