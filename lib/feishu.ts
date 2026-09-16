@@ -172,7 +172,7 @@ export function buildTestCard() {
   };
 }
 
-function assertWebhook(url: string) {
+export function assertWebhook(url: string) {
   let parsed: URL;
   try {
     parsed = new URL(url);

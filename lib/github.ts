@@ -86,31 +86,54 @@ async function githubSearch(
   return { items: data.items ?? [], warning };
 }
 
-function sourceQualifier(settings: AppSettings) {
-  if (settings.sources.mode === "repos") {
-    const repos = settings.sources.repos.slice(0, 20);
-    if (repos.length === 0) return "";
-    return repos.map((repo) => `repo:${repo}`).join(" ");
+async function githubGet<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`https://api.github.com${path}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "feishu-oss-digest",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    throw new Error("找不到这个 GitHub 组织或用户，请检查拼写。");
   }
-  const name = settings.sources.org.trim();
-  if (!name) return "";
-  return `(org:${name} OR user:${name})`;
+  if (!response.ok) {
+    throw new Error(`GitHub 请求失败（${response.status}）`);
+  }
+  return (await response.json()) as T;
 }
 
-function sourceLabel(settings: AppSettings) {
+async function resolveSource(settings: AppSettings) {
   if (settings.sources.mode === "repos") {
-    if (settings.sources.repos.length <= 3) {
-      return settings.sources.repos.join("、");
-    }
-    return `${settings.sources.repos.slice(0, 2).join("、")} 等 ${settings.sources.repos.length} 个仓库`;
+    const repos = settings.sources.repos.slice(0, 20);
+    if (repos.length === 0) return { qualifier: "", label: "" };
+    const label =
+      repos.length <= 3
+        ? repos.join("、")
+        : `${repos.slice(0, 2).join("、")} 等 ${repos.length} 个仓库`;
+    return {
+      qualifier: repos.map((repo) => `repo:${repo}`).join(" "),
+      label,
+    };
   }
-  return `GitHub ${settings.sources.org}`;
+  const name = settings.sources.org.trim();
+  if (!name) return { qualifier: "", label: "" };
+  const profile = await githubGet<{ type?: string }>(
+    `/users/${encodeURIComponent(name)}`,
+    settings.githubToken,
+  );
+  if (profile.type === "Organization") {
+    return { qualifier: `org:${name}`, label: `GitHub 组织 ${name}` };
+  }
+  return { qualifier: `user:${name}`, label: `GitHub 用户 ${name}` };
 }
 
 export async function collectDigest(settings: AppSettings): Promise<Digest> {
   const until = new Date();
   const since = new Date(until.getTime() - settings.lookbackHours * 60 * 60 * 1000);
-  const qualifier = sourceQualifier(settings);
+  const { qualifier, label } = await resolveSource(settings);
   if (!qualifier) {
     throw new Error("还没有配置 GitHub 组织或仓库。");
   }
@@ -174,7 +197,7 @@ export async function collectDigest(settings: AppSettings): Promise<Digest> {
     since: since.toISOString(),
     until: until.toISOString(),
     lookbackHours: settings.lookbackHours,
-    sourceLabel: sourceLabel(settings),
+    sourceLabel: label,
     demo: false,
     warning: warnings[0],
     newIssues,

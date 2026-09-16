@@ -9,7 +9,7 @@ const nav = [
   { href: "/", label: "今日日报", icon: BookOpen },
   { href: "/settings", label: "配置", icon: Settings2 },
   { href: "/logs", label: "推送记录", icon: History },
-];
+] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

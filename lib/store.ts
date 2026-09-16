@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { assertWebhook } from "@/lib/feishu";
 import type { AppSettings, Digest, PublicSettings, SendLog } from "@/lib/types";
 import { UNCHANGED } from "@/lib/types";
 
@@ -164,6 +165,9 @@ export async function saveSettings(patch: SettingsPatch) {
   next.githubToken = next.githubToken.trim();
   next.feishu.webhookUrl = next.feishu.webhookUrl.trim();
   next.feishu.secret = next.feishu.secret.trim();
+  if (next.feishu.webhookUrl) {
+    assertWebhook(next.feishu.webhookUrl);
+  }
   next.schedule.hour = Math.min(23, Math.max(0, Number(next.schedule.hour) || 0));
   next.schedule.minute = Math.min(
     59,
