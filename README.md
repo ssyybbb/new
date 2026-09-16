@@ -1,59 +1,20 @@
-# 开源日报 · 飞书群机器人
+# 开源日报
 
-每天把公司开源仓库里的 **Issue** 和 **Pull Request** 汇总成一张卡片，推到飞书群。
+这是一个会每天把公司 GitHub 开源仓库的 Issue / PR 汇总，发到飞书群的小工具。
 
-飞书开放平台负责让机器人进群、发消息；GitHub Actions 负责每天去拉 GitHub 再推送。本地服务器不是必须的。
+## 这个应用在哪？
 
-## 部署流程
+代码就在当前这个 Cursor 项目里。你现在如果能打开预览页，那只是临时看效果，**还不是**已经部署到飞书或 GitHub。
 
-### 1. 飞书开放平台创建应用机器人
+要让它每天自动发，必须把这个项目存成一个 **GitHub 仓库**。不需要自己租服务器、也不需要一直开着电脑。
 
-1. 打开 [飞书开放平台](https://open.feishu.cn/app)，创建企业自建应用
-2. 添加应用能力 → 开通「机器人」
-3. 权限管理申请：`im:message:send_as_bot`（以应用身份发消息）、`im:chat:read`（获取群组信息）
-4. 版本管理与发布 → 提交发布（通常需要管理员审批）
-5. 在目标群 → 设置 → 群机器人 → 添加这个应用
-6. 复制 App ID、App Secret
+## 你要做的 4 步
 
-### 2. GitHub Actions 每天自动发
+1. 在 Cursor 点 **Create repo**，用 GitHub 账号新建仓库（代码会自动进去）
+2. 去 [飞书开放平台](https://open.feishu.cn/app) 创建应用 → 开通机器人 → 发布 → 把机器人拉进群 → 复制 App ID / App Secret
+3. 打开 GitHub 仓库 → Settings → Secrets and variables → Actions，添加：
+   - Secret：`FEISHU_APP_ID`、`FEISHU_APP_SECRET`
+   - Variable：`GITHUB_ORG`（你们的 GitHub 组织名）或 `GITHUB_REPOS`
+4. GitHub 仓库点 Actions →「每日开源日报」→ Run workflow。群里收到卡片就成功了
 
-把本仓库放到 GitHub 后，在 **Settings → Secrets and variables → Actions** 填写：
-
-| 名称 | 位置 | 必填 | 含义 |
-| --- | --- | --- | --- |
-| `FEISHU_APP_ID` | Secret | 是 | 开放平台 App ID |
-| `FEISHU_APP_SECRET` | Secret | 是 | 开放平台 App Secret |
-| `FEISHU_CHAT_ID` | Secret | 否 | 群 Chat ID；机器人只在一个群时可省略 |
-| `GITHUB_ORG` | Variable | 二选一 | GitHub 组织名 |
-| `GITHUB_REPOS` | Variable | 二选一 | `acme/sdk acme/cli` |
-| `OSS_GITHUB_TOKEN` | Secret | 否 | 私有仓库才需要 |
-
-打开 **Actions → 每日开源日报 → Run workflow** 试跑。之后默认每天北京时间 09:00 自动发。
-
-工作流：`.github/workflows/daily-digest.yml`。
-
-### 3. 可选：本机预览
-
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
-
-打开 [http://127.0.0.1:43123](http://127.0.0.1:43123)，在配置页填同样的凭证，点「发送测试消息」。
-
-## 配置项
-
-| 变量 | 含义 |
-| --- | --- |
-| `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | 开放平台应用凭证 |
-| `FEISHU_CHAT_ID` | 目标群。只在一个群时可省略 |
-| `FEISHU_WEBHOOK_URL` | 备用：群自定义机器人 Webhook |
-| `GITHUB_ORG` / `GITHUB_REPOS` | 要跟踪的仓库 |
-| `GITHUB_TOKEN` | 可选 PAT |
-| `DIGEST_TITLE` | 卡片标题 |
-| `LOOKBACK_HOURS` | 统计过去多少小时，默认 24 |
-
-```bash
-npm run digest:send
-```
+之后每天北京时间约 09:00 自动发。

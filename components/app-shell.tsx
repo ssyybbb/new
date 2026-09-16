@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "今日日报", icon: BookOpen },
-  { href: "/guide", label: "定时推送", icon: Cloud },
+  { href: "/guide", label: "怎么用", icon: Cloud },
   { href: "/settings", label: "配置", icon: Settings2 },
   { href: "/logs", label: "推送记录", icon: History },
 ] as const;

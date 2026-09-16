@@ -84,8 +84,7 @@ export function DashboardPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">今日日报</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            飞书群机器人不会自己去拉 GitHub。推荐用 GitHub Actions
-            每天自动推送，本地不用挂服务。
+            这是预览页。要每天自动发到飞书群，请先把项目存到 GitHub，步骤在「怎么用」。
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
