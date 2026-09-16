@@ -29,6 +29,7 @@ export function DashboardPage({
   const [status, setStatus] = useState<DashboardStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -50,7 +51,13 @@ export function DashboardPage({
 
   async function sendNow() {
     setSending(true);
+    setSendError(null);
     try {
+      if (!status.webhookConfigured) {
+        throw new Error(
+          "还没有配置飞书机器人 Webhook。请先到「配置」页粘贴群机器人地址。",
+        );
+      }
       const response = await fetch("/api/digest/send", { method: "POST" });
       const data = (await response.json()) as {
         ok: boolean;
@@ -63,7 +70,9 @@ export function DashboardPage({
       toast.success(data.log?.message ?? "已推送到飞书群");
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "推送失败");
+      const message = error instanceof Error ? error.message : "推送失败";
+      setSendError(message);
+      toast.error(message);
     } finally {
       setSending(false);
     }
@@ -98,6 +107,34 @@ export function DashboardPage({
           </Button>
         </div>
       </div>
+
+      {!status.webhookConfigured ? (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertTitle>还没接入飞书群</AlertTitle>
+          <AlertDescription>
+            现在点「立即推送到飞书」发不出去，需要先在「配置」里粘贴自定义机器人
+            Webhook。生产环境也可以不启动本机服务，改用 GitHub Actions。
+            {" "}
+            <Link href="/settings" className="font-medium text-foreground">
+              去配置 Webhook
+            </Link>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {sendError ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>推送失败</AlertTitle>
+          <AlertDescription>
+            {sendError}{" "}
+            <Link href="/settings" className="font-medium">
+              前往配置
+            </Link>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Card className="bg-white shadow-sm">
         <CardHeader>
