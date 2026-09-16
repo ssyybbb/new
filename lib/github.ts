@@ -49,10 +49,49 @@ function afterIso(iso: string | undefined, since: Date) {
   return new Date(iso).getTime() >= since.getTime();
 }
 
+export function githubCatalogUrls(settings: AppSettings) {
+  if (settings.sources.mode === "repos" && settings.sources.repos.length === 1) {
+    const repo = settings.sources.repos[0];
+    return {
+      issues: `https://github.com/${repo}/issues`,
+      pulls: `https://github.com/${repo}/pulls`,
+    };
+  }
+  const query =
+    settings.sources.mode === "org"
+      ? `org:${settings.sources.org.trim()}`
+      : settings.sources.repos.map((repo) => `repo:${repo}`).join(" ");
+  return {
+    issues: `https://github.com/search?q=${encodeURIComponent(`${query} is:issue is:open`)}&type=issues`,
+    pulls: `https://github.com/search?q=${encodeURIComponent(`${query} is:pr is:open`)}&type=issues`,
+  };
+}
+
+export function itemKey(repo: string, number: number) {
+  return `${repo}#${number}`;
+}
+
+export function pickBacklog(
+  items: DigestItem[],
+  exclude: DigestItem[],
+  totalCount: number,
+  cap: number,
+) {
+  const excludeKeys = new Set(exclude.map((item) => itemKey(item.repo, item.number)));
+  const backlog = items.filter(
+    (item) => !excludeKeys.has(itemKey(item.repo, item.number)),
+  );
+  const total = Math.max(backlog.length, Math.max(0, totalCount - exclude.length));
+  return {
+    items: backlog.slice(0, cap),
+    total,
+  };
+}
+
 async function githubSearch(
   query: string,
   token: string,
-): Promise<{ items: SearchItem[]; warning?: string }> {
+): Promise<{ items: SearchItem[]; total_count: number; warning?: string }> {
   const url = `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=50`;
   const response = await fetch(url, {
     headers: {
@@ -83,8 +122,18 @@ async function githubSearch(
     remaining && Number(remaining) < 5
       ? `GitHub 搜索额度只剩 ${remaining} 次，建议尽快配置 Token。`
       : undefined;
-  return { items: data.items ?? [], warning };
+  return {
+    items: data.items ?? [],
+    total_count: data.total_count ?? 0,
+    warning,
+  };
 }
+
+const emptySearch = {
+  items: [] as SearchItem[],
+  total_count: 0,
+  warning: undefined as string | undefined,
+};
 
 async function githubGet<T>(path: string, token: string): Promise<T> {
   const response = await fetch(`https://api.github.com${path}`, {
@@ -145,30 +194,42 @@ export async function collectDigest(settings: AppSettings): Promise<Digest> {
     newPulls: `${qualifier}${visibility} is:pr created:>=${sinceDate}`,
     mergedPulls: `${qualifier}${visibility} is:pr is:merged merged:>=${sinceDate}`,
     closedIssues: `${qualifier}${visibility} is:issue is:closed closed:>=${sinceDate}`,
+    openIssues: `${qualifier}${visibility} is:issue is:open`,
+    openPulls: `${qualifier}${visibility} is:pr is:open`,
   };
 
   const warnings: string[] = [];
-  const [newIssuesRes, newPullsRes, mergedPullsRes, closedIssuesRes] =
-    await Promise.all([
-      settings.include.newIssues
-        ? githubSearch(queries.newIssues, settings.githubToken)
-        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
-      settings.include.newPulls
-        ? githubSearch(queries.newPulls, settings.githubToken)
-        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
-      settings.include.mergedPulls
-        ? githubSearch(queries.mergedPulls, settings.githubToken)
-        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
-      settings.include.closedIssues
-        ? githubSearch(queries.closedIssues, settings.githubToken)
-        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
-    ]);
+  const [
+    newIssuesRes,
+    newPullsRes,
+    mergedPullsRes,
+    closedIssuesRes,
+    openIssuesRes,
+    openPullsRes,
+  ] = await Promise.all([
+    settings.include.newIssues
+      ? githubSearch(queries.newIssues, settings.githubToken)
+      : Promise.resolve(emptySearch),
+    settings.include.newPulls
+      ? githubSearch(queries.newPulls, settings.githubToken)
+      : Promise.resolve(emptySearch),
+    settings.include.mergedPulls
+      ? githubSearch(queries.mergedPulls, settings.githubToken)
+      : Promise.resolve(emptySearch),
+    settings.include.closedIssues
+      ? githubSearch(queries.closedIssues, settings.githubToken)
+      : Promise.resolve(emptySearch),
+    githubSearch(queries.openIssues, settings.githubToken),
+    githubSearch(queries.openPulls, settings.githubToken),
+  ]);
 
   for (const result of [
     newIssuesRes,
     newPullsRes,
     mergedPullsRes,
     closedIssuesRes,
+    openIssuesRes,
+    openPullsRes,
   ]) {
     if (result.warning) warnings.push(result.warning);
   }
@@ -190,6 +251,19 @@ export async function collectDigest(settings: AppSettings): Promise<Digest> {
     .filter((item) => afterIso(item.closed_at ?? undefined, since))
     .map((item) => toItem(item, "issue"))
     .slice(0, cap);
+  const openIssues = pickBacklog(
+    openIssuesRes.items.map((item) => toItem(item, "issue")),
+    newIssues,
+    openIssuesRes.total_count,
+    cap,
+  );
+  const openPulls = pickBacklog(
+    openPullsRes.items.map((item) => toItem(item, "pull")),
+    newPulls,
+    openPullsRes.total_count,
+    cap,
+  );
+  const catalog = githubCatalogUrls(settings);
 
   return {
     title: settings.digestTitle,
@@ -204,5 +278,11 @@ export async function collectDigest(settings: AppSettings): Promise<Digest> {
     newPulls,
     mergedPulls,
     closedIssues,
+    openIssues: openIssues.items,
+    openPulls: openPulls.items,
+    openIssueTotal: openIssues.total,
+    openPullTotal: openPulls.total,
+    allIssuesUrl: catalog.issues,
+    allPullsUrl: catalog.pulls,
   };
 }

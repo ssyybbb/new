@@ -106,5 +106,43 @@ export function buildDemoDigest(lookbackHours: number, title = "开源日报"): 
         closedAt: hoursAgo(9),
       }),
     ],
+    openIssues: [
+      item({
+        type: "issue",
+        number: 18,
+        title: "需要更好的日志，方便排查仿真失败",
+        url: "https://github.com/acme/sdk-js/issues/18",
+        repo: "acme/sdk-js",
+        author: "dave",
+        createdAt: hoursAgo(80),
+        updatedAt: hoursAgo(72),
+      }),
+      item({
+        type: "issue",
+        number: 9,
+        title: "窗口缩放后渲染错位",
+        url: "https://github.com/acme/cli/issues/9",
+        repo: "acme/cli",
+        author: "eve",
+        createdAt: hoursAgo(240),
+        updatedAt: hoursAgo(168),
+      }),
+    ],
+    openPulls: [
+      item({
+        type: "pull",
+        number: 30,
+        title: "WIP: 多线程求解",
+        url: "https://github.com/acme/gateway/pull/30",
+        repo: "acme/gateway",
+        author: "frank",
+        createdAt: hoursAgo(96),
+        updatedAt: hoursAgo(30),
+      }),
+    ],
+    openIssueTotal: 12,
+    openPullTotal: 5,
+    allIssuesUrl: "https://github.com/acme/docs/issues",
+    allPullsUrl: "https://github.com/acme/docs/pulls",
   };
 }

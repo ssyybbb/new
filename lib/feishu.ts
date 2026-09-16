@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { AppSettings, Digest, DigestItem } from "@/lib/types";
-import { formatZhDate } from "@/lib/time";
+import { formatRelativeZh, formatZhDate } from "@/lib/time";
 
 export function signFeishu(secret: string, timestampSeconds: number) {
   const stringToSign = `${timestampSeconds}\n${secret}`;
@@ -11,17 +11,29 @@ function escapeMd(text: string) {
   return text.replace(/[\[\]\(\)]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function formatItem(item: DigestItem) {
+function formatItem(item: DigestItem, kind: "today" | "open") {
   const title = escapeMd(item.title);
-  return `[#${item.number} ${title}](${item.url}) · \`${item.repo}\` · @${item.author}`;
+  const link = `[#${item.number} ${title}](${item.url})`;
+  if (kind === "open") {
+    return `${link} · ${formatRelativeZh(item.updatedAt)}`;
+  }
+  return `${link} · @${item.author}`;
 }
 
-function section(title: string, items: DigestItem[], max: number) {
-  if (items.length === 0) return "";
+function section(
+  title: string,
+  items: DigestItem[],
+  max: number,
+  kind: "today" | "open",
+  total = items.length,
+) {
+  if (total === 0 && items.length === 0) return "";
   const shown = items.slice(0, max);
-  const extra =
-    items.length > max ? `\n…还有 ${items.length - max} 条未列出` : "";
-  return `**${title}（${items.length}）**\n${shown.map((item) => formatItem(item)).join("\n")}${extra}`;
+  const hidden = Math.max(0, total - shown.length);
+  const extra = hidden > 0 ? `\n…还有 ${hidden} 条未列出` : "";
+  const count =
+    total > shown.length ? `${total}，列出 ${shown.length} 条` : `${total || shown.length}`;
+  return `**${title}（${count}）**\n${shown.map((item) => formatItem(item, kind)).join("\n")}${extra}`;
 }
 
 export function digestSummary(digest: Digest) {
@@ -33,7 +45,7 @@ export function digestSummary(digest: Digest) {
   };
 }
 
-export function isDigestEmpty(digest: Digest) {
+export function isTodayEmpty(digest: Digest) {
   const summary = digestSummary(digest);
   return (
     summary.newIssues +
@@ -44,26 +56,52 @@ export function isDigestEmpty(digest: Digest) {
   );
 }
 
+export function isDigestEmpty(digest: Digest) {
+  return (
+    isTodayEmpty(digest) &&
+    (digest.openIssues?.length ?? 0) === 0 &&
+    (digest.openPulls?.length ?? 0) === 0
+  );
+}
+
 export function buildFeishuCard(settings: AppSettings, digest: Digest) {
   const dateLabel = formatZhDate(new Date(digest.until), settings.schedule.timezone);
   const summary = digestSummary(digest);
   const max = settings.maxItemsPerSection;
   const headerTitle = `${digest.title} · ${dateLabel}`;
+  const todayEmpty = isTodayEmpty(digest);
+  const empty = isDigestEmpty(digest);
 
-  const bodySections = [
+  const todaySections = [
     settings.include.newIssues
-      ? section("新 Issue", digest.newIssues, max)
+      ? section("新 Issue", digest.newIssues, max, "today")
       : "",
-    settings.include.newPulls ? section("新 PR", digest.newPulls, max) : "",
+    settings.include.newPulls ? section("新 PR", digest.newPulls, max, "today") : "",
     settings.include.mergedPulls
-      ? section("已合并 PR", digest.mergedPulls, max)
+      ? section("已合并 PR", digest.mergedPulls, max, "today")
       : "",
     settings.include.closedIssues
-      ? section("已关闭 Issue", digest.closedIssues, max)
+      ? section("已关闭 Issue", digest.closedIssues, max, "today")
       : "",
   ].filter(Boolean);
 
-  const empty = isDigestEmpty(digest);
+  const openSections = [
+    section(
+      "未关闭 Issue",
+      digest.openIssues ?? [],
+      max,
+      "open",
+      digest.openIssueTotal ?? digest.openIssues?.length ?? 0,
+    ),
+    section(
+      "未合并 PR",
+      digest.openPulls ?? [],
+      max,
+      "open",
+      digest.openPullTotal ?? digest.openPulls?.length ?? 0,
+    ),
+  ].filter(Boolean);
+
   const elements: Record<string, unknown>[] = [
     {
       tag: "div",
@@ -102,21 +140,57 @@ export function buildFeishuCard(settings: AppSettings, digest: Digest) {
     { tag: "hr" },
   ];
 
-  if (empty) {
+  if (todayEmpty) {
     elements.push({
       tag: "div",
       text: {
         tag: "lark_md",
-        content: "今日关注的仓库很安静，没有新的 Issue 或 PR。",
+        content: empty
+          ? "今日关注的仓库很安静，没有新的 Issue 或 PR，也没有仍未关闭的条目。"
+          : "今日关注的仓库没有新增 Issue 或 PR。",
       },
     });
   } else {
-    for (const block of bodySections) {
+    elements.push({
+      tag: "div",
+      text: { tag: "lark_md", content: "**今日动态**" },
+    });
+    for (const block of todaySections) {
       elements.push({
         tag: "div",
         text: { tag: "lark_md", content: block },
       });
     }
+  }
+
+  if (openSections.length > 0) {
+    elements.push({ tag: "hr" });
+    elements.push({
+      tag: "div",
+      text: {
+        tag: "lark_md",
+        content: "**仍未关闭（不含今日新建）**",
+      },
+    });
+    for (const block of openSections) {
+      elements.push({
+        tag: "div",
+        text: { tag: "lark_md", content: block },
+      });
+    }
+  }
+
+  if (digest.allIssuesUrl || digest.allPullsUrl) {
+    const links = [
+      digest.allIssuesUrl ? `[全部 Issue](${digest.allIssuesUrl})` : "",
+      digest.allPullsUrl ? `[全部 PR](${digest.allPullsUrl})` : "",
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+    elements.push({
+      tag: "div",
+      text: { tag: "lark_md", content: links },
+    });
   }
 
   elements.push({ tag: "hr" });
@@ -125,7 +199,7 @@ export function buildFeishuCard(settings: AppSettings, digest: Digest) {
     elements: [
       {
         tag: "plain_text",
-        content: "由开源日报机器人自动推送。可在控制台预览或立即补发。",
+        content: "点标题打开 GitHub 对应页面。由开源日报机器人自动推送。",
       },
     ],
   });

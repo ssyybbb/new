@@ -80,6 +80,12 @@ export type Digest = {
   newPulls: DigestItem[];
   mergedPulls: DigestItem[];
   closedIssues: DigestItem[];
+  openIssues: DigestItem[];
+  openPulls: DigestItem[];
+  openIssueTotal: number;
+  openPullTotal: number;
+  allIssuesUrl: string;
+  allPullsUrl: string;
 };
 
 export type SendTrigger = "manual" | "schedule" | "cron" | "cli" | "test";

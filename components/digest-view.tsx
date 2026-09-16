@@ -1,5 +1,12 @@
-import { GitMerge, GitPullRequest, CircleDot, CircleCheck } from "lucide-react";
+import {
+  GitMerge,
+  GitPullRequest,
+  CircleDot,
+  CircleCheck,
+  ListTodo,
+} from "lucide-react";
 import type { Digest, DigestItem } from "@/lib/types";
+import { formatRelativeZh } from "@/lib/time";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -7,21 +14,28 @@ function Section({
   title,
   icon: Icon,
   items,
+  total,
   empty,
   accent,
+  meta,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   items: DigestItem[];
+  total?: number;
   empty: string;
   accent: string;
+  meta?: (item: DigestItem) => string;
 }) {
+  const count = total ?? items.length;
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <Icon className={`size-4 ${accent}`} />
         <h3 className="text-sm font-medium">{title}</h3>
-        <Badge variant="secondary">{items.length}</Badge>
+        <Badge variant="secondary">
+          {count > items.length ? `${count}，列出 ${items.length}` : count}
+        </Badge>
       </div>
       {items.length === 0 ? (
         <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
@@ -30,7 +44,9 @@ function Section({
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-white">
           {items.map((item) => (
-            <li key={`${item.repo}-${item.number}-${item.type}-${item.mergedAt ?? item.closedAt ?? item.createdAt}`}>
+            <li
+              key={`${item.repo}-${item.number}-${item.type}-${item.mergedAt ?? item.closedAt ?? item.updatedAt ?? item.createdAt}`}
+            >
               <a
                 href={item.url}
                 target="_blank"
@@ -42,7 +58,7 @@ function Section({
                   {item.title}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {item.repo} · @{item.author}
+                  {meta ? meta(item) : `${item.repo} · @${item.author}`}
                 </span>
               </a>
             </li>
@@ -54,6 +70,14 @@ function Section({
 }
 
 export function DigestView({ digest }: { digest: Digest }) {
+  const openIssues = digest.openIssues ?? [];
+  const openPulls = digest.openPulls ?? [];
+  const todayCount =
+    digest.newIssues.length +
+    digest.newPulls.length +
+    digest.mergedPulls.length +
+    digest.closedIssues.length;
+
   return (
     <Card className="overflow-hidden bg-white py-0 shadow-sm">
       <div className="bg-[#3370ff] px-5 py-4 text-white">
@@ -73,34 +97,96 @@ export function DigestView({ digest }: { digest: Digest }) {
           <Stat label="已合并" value={digest.mergedPulls.length} />
           <Stat label="已关闭" value={digest.closedIssues.length} />
         </div>
-        <Section
-          title="新 Issue"
-          icon={CircleDot}
-          items={digest.newIssues}
-          empty="这段时间没有新建 Issue。"
-          accent="text-orange-500"
-        />
-        <Section
-          title="新 Pull Request"
-          icon={GitPullRequest}
-          items={digest.newPulls}
-          empty="这段时间没有新建 PR。"
-          accent="text-sky-600"
-        />
-        <Section
-          title="已合并 PR"
-          icon={GitMerge}
-          items={digest.mergedPulls}
-          empty="这段时间没有合并 PR。"
-          accent="text-violet-600"
-        />
-        <Section
-          title="已关闭 Issue"
-          icon={CircleCheck}
-          items={digest.closedIssues}
-          empty="这段时间没有关闭 Issue。"
-          accent="text-emerald-600"
-        />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">今日动态</h3>
+          {todayCount === 0 ? (
+            <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
+              今日关注的仓库没有新增 Issue 或 PR。
+            </p>
+          ) : (
+            <>
+              <Section
+                title="新 Issue"
+                icon={CircleDot}
+                items={digest.newIssues}
+                empty="这段时间没有新建 Issue。"
+                accent="text-orange-500"
+              />
+              <Section
+                title="新 Pull Request"
+                icon={GitPullRequest}
+                items={digest.newPulls}
+                empty="这段时间没有新建 PR。"
+                accent="text-sky-600"
+              />
+              <Section
+                title="已合并 PR"
+                icon={GitMerge}
+                items={digest.mergedPulls}
+                empty="这段时间没有合并 PR。"
+                accent="text-violet-600"
+              />
+              <Section
+                title="已关闭 Issue"
+                icon={CircleCheck}
+                items={digest.closedIssues}
+                empty="这段时间没有关闭 Issue。"
+                accent="text-emerald-600"
+              />
+            </>
+          )}
+        </div>
+
+        <div className="space-y-4 border-t pt-5">
+          <h3 className="text-sm font-semibold">仍未关闭（不含今日新建）</h3>
+          <Section
+            title="未关闭 Issue"
+            icon={ListTodo}
+            items={openIssues}
+            total={digest.openIssueTotal ?? openIssues.length}
+            empty="没有更早还开着的 Issue。"
+            accent="text-amber-600"
+            meta={(item) => formatRelativeZh(item.updatedAt)}
+          />
+          <Section
+            title="未合并 PR"
+            icon={GitPullRequest}
+            items={openPulls}
+            total={digest.openPullTotal ?? openPulls.length}
+            empty="没有更早还开着的 PR。"
+            accent="text-indigo-600"
+            meta={(item) => formatRelativeZh(item.updatedAt)}
+          />
+        </div>
+
+        {digest.allIssuesUrl || digest.allPullsUrl ? (
+          <p className="text-sm">
+            {digest.allIssuesUrl ? (
+              <a
+                href={digest.allIssuesUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-[#3370ff] underline-offset-4 hover:underline"
+              >
+                全部 Issue
+              </a>
+            ) : null}
+            {digest.allIssuesUrl && digest.allPullsUrl ? (
+              <span className="px-2 text-muted-foreground">·</span>
+            ) : null}
+            {digest.allPullsUrl ? (
+              <a
+                href={digest.allPullsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-[#3370ff] underline-offset-4 hover:underline"
+              >
+                全部 PR
+              </a>
+            ) : null}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -74,6 +74,23 @@ export function nextRunAt(settings: {
   return new Date(now.getTime() + delta * 60 * 1000);
 }
 
+export function formatRelativeZh(iso: string, now = new Date()) {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "更新时间未知";
+  const diff = Math.max(0, now.getTime() - then);
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "刚刚更新";
+  if (minutes < 60) return `${minutes} 分钟前更新`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前更新`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 天前更新`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} 周前更新`;
+  const months = Math.max(1, Math.floor(days / 30));
+  return `${months} 个月前更新`;
+}
+
 export function isWithinScheduleWindow(
   date: Date,
   settings: { timezone: string; hour: number; minute: number },

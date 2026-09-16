@@ -284,13 +284,26 @@ export async function appendLog(log: SendLog) {
   await writeFile(logsPath, JSON.stringify(logs.slice(0, 100), null, 2), "utf8");
 }
 
+function normalizeDigest(digest: Digest): Digest {
+  return {
+    ...digest,
+    openIssues: digest.openIssues ?? [],
+    openPulls: digest.openPulls ?? [],
+    openIssueTotal: digest.openIssueTotal ?? digest.openIssues?.length ?? 0,
+    openPullTotal: digest.openPullTotal ?? digest.openPulls?.length ?? 0,
+    allIssuesUrl: digest.allIssuesUrl ?? "",
+    allPullsUrl: digest.allPullsUrl ?? "",
+  };
+}
+
 export async function saveLastDigest(digest: Digest) {
   await ensureDataDir();
   await writeFile(digestPath, JSON.stringify(digest, null, 2), "utf8");
 }
 
 export async function readLastDigest(): Promise<Digest | null> {
-  return readJson<Digest | null>(digestPath, null);
+  const digest = await readJson<Digest | null>(digestPath, null);
+  return digest ? normalizeDigest(digest) : null;
 }
 
 export type ScheduleState = {

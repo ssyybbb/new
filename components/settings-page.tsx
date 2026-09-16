@@ -398,7 +398,10 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
       <Card className="bg-white shadow-sm">
         <CardHeader>
           <CardTitle>3. 日报内容</CardTitle>
-          <CardDescription>选择每天汇总哪些动态，以及时间窗口。</CardDescription>
+          <CardDescription>
+            选择每天汇总哪些今日动态。仍未关闭的 Issue / PR 会另外列出，点标题可跳到
+            GitHub。
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Field label="日报标题">
