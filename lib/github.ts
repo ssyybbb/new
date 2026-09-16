@@ -1,0 +1,185 @@
+import type { AppSettings, Digest, DigestItem } from "@/lib/types";
+
+type SearchItem = {
+  html_url: string;
+  title: string;
+  number: number;
+  state: string;
+  created_at: string;
+  updated_at: string;
+  closed_at: string | null;
+  user: { login: string } | null;
+  repository_url: string;
+  pull_request?: {
+    url: string;
+    html_url: string;
+    merged_at?: string | null;
+  };
+};
+
+type SearchResponse = {
+  total_count: number;
+  incomplete_results: boolean;
+  items: SearchItem[];
+};
+
+function repoFromUrl(repositoryUrl: string) {
+  const parts = repositoryUrl.split("/repos/");
+  return parts[1] ?? repositoryUrl;
+}
+
+function toItem(item: SearchItem, type: DigestItem["type"]): DigestItem {
+  return {
+    type,
+    number: item.number,
+    title: item.title,
+    url: item.html_url,
+    repo: repoFromUrl(item.repository_url),
+    author: item.user?.login ?? "unknown",
+    state: item.state,
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+    closedAt: item.closed_at ?? undefined,
+    mergedAt: item.pull_request?.merged_at ?? undefined,
+  };
+}
+
+function afterIso(iso: string | undefined, since: Date) {
+  if (!iso) return false;
+  return new Date(iso).getTime() >= since.getTime();
+}
+
+async function githubSearch(
+  query: string,
+  token: string,
+): Promise<{ items: SearchItem[]; warning?: string }> {
+  const url = `https://api.github.com/search/issues?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=50`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "feishu-oss-digest",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401) {
+    throw new Error("GitHub Token 无效，请检查配置。");
+  }
+  if (response.status === 403 || response.status === 429) {
+    throw new Error(
+      "GitHub API 请求过于频繁。配置 Token 后限额会高很多（建议在设置里填入 PAT）。",
+    );
+  }
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`GitHub 搜索失败（${response.status}）：${body.slice(0, 180)}`);
+  }
+
+  const data = (await response.json()) as SearchResponse;
+  const remaining = response.headers.get("x-ratelimit-remaining");
+  const warning =
+    remaining && Number(remaining) < 5
+      ? `GitHub 搜索额度只剩 ${remaining} 次，建议尽快配置 Token。`
+      : undefined;
+  return { items: data.items ?? [], warning };
+}
+
+function sourceQualifier(settings: AppSettings) {
+  if (settings.sources.mode === "repos") {
+    const repos = settings.sources.repos.slice(0, 20);
+    if (repos.length === 0) return "";
+    return repos.map((repo) => `repo:${repo}`).join(" ");
+  }
+  const name = settings.sources.org.trim();
+  if (!name) return "";
+  return `(org:${name} OR user:${name})`;
+}
+
+function sourceLabel(settings: AppSettings) {
+  if (settings.sources.mode === "repos") {
+    if (settings.sources.repos.length <= 3) {
+      return settings.sources.repos.join("、");
+    }
+    return `${settings.sources.repos.slice(0, 2).join("、")} 等 ${settings.sources.repos.length} 个仓库`;
+  }
+  return `GitHub ${settings.sources.org}`;
+}
+
+export async function collectDigest(settings: AppSettings): Promise<Digest> {
+  const until = new Date();
+  const since = new Date(until.getTime() - settings.lookbackHours * 60 * 60 * 1000);
+  const qualifier = sourceQualifier(settings);
+  if (!qualifier) {
+    throw new Error("还没有配置 GitHub 组织或仓库。");
+  }
+
+  const sinceDate = since.toISOString().slice(0, 10);
+  const visibility = settings.githubToken ? "" : " is:public";
+  const queries = {
+    newIssues: `${qualifier}${visibility} is:issue created:>=${sinceDate}`,
+    newPulls: `${qualifier}${visibility} is:pr created:>=${sinceDate}`,
+    mergedPulls: `${qualifier}${visibility} is:pr is:merged merged:>=${sinceDate}`,
+    closedIssues: `${qualifier}${visibility} is:issue is:closed closed:>=${sinceDate}`,
+  };
+
+  const warnings: string[] = [];
+  const [newIssuesRes, newPullsRes, mergedPullsRes, closedIssuesRes] =
+    await Promise.all([
+      settings.include.newIssues
+        ? githubSearch(queries.newIssues, settings.githubToken)
+        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
+      settings.include.newPulls
+        ? githubSearch(queries.newPulls, settings.githubToken)
+        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
+      settings.include.mergedPulls
+        ? githubSearch(queries.mergedPulls, settings.githubToken)
+        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
+      settings.include.closedIssues
+        ? githubSearch(queries.closedIssues, settings.githubToken)
+        : Promise.resolve({ items: [] as SearchItem[], warning: undefined as string | undefined }),
+    ]);
+
+  for (const result of [
+    newIssuesRes,
+    newPullsRes,
+    mergedPullsRes,
+    closedIssuesRes,
+  ]) {
+    if (result.warning) warnings.push(result.warning);
+  }
+
+  const cap = settings.maxItemsPerSection;
+  const newIssues = newIssuesRes.items
+    .filter((item) => afterIso(item.created_at, since))
+    .map((item) => toItem(item, "issue"))
+    .slice(0, cap);
+  const newPulls = newPullsRes.items
+    .filter((item) => afterIso(item.created_at, since))
+    .map((item) => toItem(item, "pull"))
+    .slice(0, cap);
+  const mergedPulls = mergedPullsRes.items
+    .filter((item) => afterIso(item.pull_request?.merged_at ?? item.closed_at ?? undefined, since))
+    .map((item) => toItem(item, "pull"))
+    .slice(0, cap);
+  const closedIssues = closedIssuesRes.items
+    .filter((item) => afterIso(item.closed_at ?? undefined, since))
+    .map((item) => toItem(item, "issue"))
+    .slice(0, cap);
+
+  return {
+    title: settings.digestTitle,
+    generatedAt: until.toISOString(),
+    since: since.toISOString(),
+    until: until.toISOString(),
+    lookbackHours: settings.lookbackHours,
+    sourceLabel: sourceLabel(settings),
+    demo: false,
+    warning: warnings[0],
+    newIssues,
+    newPulls,
+    mergedPulls,
+    closedIssues,
+  };
+}

@@ -1,0 +1,27 @@
+name: daily-oss-digest
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 推送开源日报到飞书
+        env:
+          GITHUB_TOKEN: ${{ secrets.OSS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_ORG: ${{ vars.GITHUB_ORG }}
+          GITHUB_REPOS: ${{ vars.GITHUB_REPOS }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+          DIGEST_TITLE: ${{ vars.DIGEST_TITLE }}
+          SCHEDULE_TZ: Asia/Shanghai
+        run: npm run digest:send

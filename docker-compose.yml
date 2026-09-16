@@ -1,0 +1,10 @@
+services:
+  digest:
+    build: .
+    ports:
+      - "43123:43123"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
