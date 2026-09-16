@@ -13,8 +13,11 @@
 1. 在 Cursor 点 **Create repo**，用 GitHub 账号新建仓库（代码会自动进去）
 2. 去 [飞书开放平台](https://open.feishu.cn/app) 创建应用 → 开通机器人 → 发布 → 把机器人拉进群 → 复制 App ID / App Secret
 3. 打开 GitHub 仓库 → Settings → Secrets and variables → Actions，添加：
-   - Secret：`FEISHU_APP_ID`、`FEISHU_APP_SECRET`
-   - Variable：`OSS_ORG`（你们的 GitHub 组织名）或 `OSS_REPOS`
+   - Secret：`FEISHU_WEBHOOK_URL`（群自定义机器人），或 `FEISHU_APP_ID` + `FEISHU_APP_SECRET`（开放平台应用）
+   - Variable（二选一）：
+     - 跟踪整个组织：`OSS_ORG` = `PhyAgentOS`
+     - 只要一个仓库：`OSS_REPOS` = `PhyAgentOS/PhyAgentOS-core`
+     - **不要**把 `https://github.com/PhyAgentOS/PhyAgentOS-core/pulls` 填进 `OSS_ORG`。那是网页地址，不是组织名。贴了也能识别成仓库，但正确写法是上面两行。
 4. GitHub 仓库点 Actions →「每日开源日报」→ Run workflow。群里收到卡片就成功了
 
 之后每天北京时间约 09:00 自动发。

@@ -322,7 +322,9 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
         <CardHeader>
           <CardTitle>2. GitHub 开源仓库</CardTitle>
           <CardDescription>
-            填写公司 GitHub 组织名，或明确列出要跟踪的仓库。公开仓库可不填
+            跟踪整个组织填组织名（例如 PhyAgentOS）。只要
+            PhyAgentOS-core 这一个仓库时，选「指定仓库列表」，填
+            PhyAgentOS/PhyAgentOS-core。也可以贴 GitHub 链接，程序会自动抽出仓库名。公开仓库可不填
             Token；私有仓库或避免限流时建议使用
             repo 只读权限的 Personal Access Token。
           </CardDescription>
@@ -348,7 +350,7 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
           {form.mode === "org" ? (
             <Field label="组织名">
               <Input
-                placeholder="例如 nodejs、facebook，或你们公司的 org"
+                placeholder="PhyAgentOS"
                 value={form.org}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, org: event.target.value }))
@@ -356,10 +358,10 @@ export function SettingsPage({ initialSettings }: { initialSettings: PublicSetti
               />
             </Field>
           ) : (
-            <Field label="仓库列表（每行一个 owner/repo）">
+            <Field label="仓库列表（每行一个 owner/repo，也可贴 GitHub 链接）">
               <Textarea
                 rows={5}
-                placeholder={"acme/sdk\nacme/cli"}
+                placeholder={"PhyAgentOS/PhyAgentOS-core"}
                 value={form.reposText}
                 onChange={(event) =>
                   setForm((current) => ({

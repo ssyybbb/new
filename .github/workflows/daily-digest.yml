@@ -31,6 +31,8 @@ jobs:
       - name: 推送开源日报到飞书
         env:
           GITHUB_TOKEN: ${{ secrets.OSS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          OSS_ORG: ${{ vars.OSS_ORG }}
+          OSS_REPOS: ${{ vars.OSS_REPOS }}
           GITHUB_ORG: ${{ vars.OSS_ORG }}
           GITHUB_REPOS: ${{ vars.OSS_REPOS }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}

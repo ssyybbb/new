@@ -1,6 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertWebhook } from "@/lib/feishu";
+import {
+  isValidGithubOrg,
+  isValidGithubRepo,
+  parseGithubSource,
+  parseRepoList,
+} from "@/lib/github-source";
 import type { AppSettings, Digest, PublicSettings, SendLog } from "@/lib/types";
 import { UNCHANGED } from "@/lib/types";
 
@@ -55,11 +61,20 @@ async function readJson<T>(filePath: string, fallback: T): Promise<T> {
   }
 }
 
-function parseRepoList(value: string | undefined) {
-  if (!value) return [];
-  return value
-    .split(/[\s,]+/)
-    .map((item) => item.trim())
+function applyGithubSource(settings: AppSettings) {
+  const parsedOrg = parseGithubSource(settings.sources.org);
+  if (parsedOrg.repo && settings.sources.mode === "org") {
+    settings.sources.mode = "repos";
+    settings.sources.repos = [
+      parsedOrg.repo,
+      ...settings.sources.repos.filter((repo) => repo !== parsedOrg.repo),
+    ];
+    settings.sources.org = parsedOrg.org;
+  } else {
+    settings.sources.org = parsedOrg.org;
+  }
+  settings.sources.repos = settings.sources.repos
+    .map((repo) => parseGithubSource(repo).repo ?? "")
     .filter(Boolean);
 }
 
@@ -79,8 +94,15 @@ function envSettingsOverlay(base: AppSettings): AppSettings {
   }
   const org = process.env.OSS_ORG || process.env.GITHUB_ORG;
   if (org) {
-    next.sources.mode = "org";
-    next.sources.org = org;
+    const parsed = parseGithubSource(org);
+    if (parsed.repo) {
+      next.sources.mode = "repos";
+      next.sources.repos = [parsed.repo];
+      next.sources.org = parsed.org;
+    } else if (parsed.org) {
+      next.sources.mode = "org";
+      next.sources.org = parsed.org;
+    }
   }
   const envRepos = parseRepoList(process.env.OSS_REPOS || process.env.GITHUB_REPOS);
   if (envRepos.length > 0) {
@@ -177,19 +199,13 @@ export async function saveSettings(patch: SettingsPatch) {
     next.feishu.chatId = current.feishu.chatId;
   }
 
-  next.sources.org = next.sources.org.trim();
-  next.sources.repos = next.sources.repos
-    .map((repo) => repo.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, ""))
-    .filter(Boolean);
-  if (
-    next.sources.org &&
-    !/^[A-Za-z0-9_.-]+$/.test(next.sources.org)
-  ) {
-    throw new Error("GitHub 组织或用户名格式不正确。");
+  applyGithubSource(next);
+  if (next.sources.org && !isValidGithubOrg(next.sources.org)) {
+    throw new Error("GitHub 组织或用户名格式不正确。填 PhyAgentOS 这样的名字，不要只贴网页链接里的无关路径。");
   }
   for (const repo of next.sources.repos) {
-    if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
-      throw new Error(`仓库名格式不正确：${repo}，请使用 owner/repo。`);
+    if (!isValidGithubRepo(repo)) {
+      throw new Error(`仓库名格式不正确：${repo}，请使用 owner/repo，例如 PhyAgentOS/PhyAgentOS-core。`);
     }
   }
   next.githubToken = next.githubToken.trim();

@@ -19,12 +19,16 @@ const secrets = [
     note: "同一页的 App Secret",
   },
   {
+    name: "FEISHU_WEBHOOK_URL",
+    note: "群自定义机器人的 Webhook。走开放平台应用时可以不填这个。放在 Secrets 里",
+  },
+  {
     name: "OSS_ORG",
-    note: "要跟踪的 GitHub 组织名。不要用 GITHUB_ORG，GitHub 不允许这个名字",
+    note: "Variables 里填组织名，例如 PhyAgentOS。不要用 GITHUB_ORG，也不要填网页链接",
   },
   {
     name: "OSS_REPOS",
-    note: "或者写成仓库列表：公司名/仓库名 公司名/另一个仓库",
+    note: "只要一个仓库时用这个：PhyAgentOS/PhyAgentOS-core。不要填 /pulls 完整网址",
   },
 ];
 
@@ -121,8 +125,20 @@ export function GuidePage() {
               </li>
             ))}
           </ul>
+          <div className="rounded-lg border bg-muted/40 px-3 py-3 text-sm leading-6">
+            <p className="font-medium text-foreground">PhyAgentOS-core 该填哪一项？</p>
+            <p className="mt-1 text-muted-foreground">
+              只要这一个仓库：新建 Variable，Name 填 <code className="font-mono text-foreground">OSS_REPOS</code>，Value 填 <code className="font-mono text-foreground">PhyAgentOS/PhyAgentOS-core</code>。
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              跟踪整个 PhyAgentOS 组织：Name 填 <code className="font-mono text-foreground">OSS_ORG</code>，Value 填 <code className="font-mono text-foreground">PhyAgentOS</code>。
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              <code className="font-mono text-foreground">https://github.com/PhyAgentOS/PhyAgentOS-core/pulls</code> 是浏览器地址，不要当组织名填。程序现在能从这种链接里抽出仓库名，但推荐直接填 <code className="font-mono text-foreground">PhyAgentOS/PhyAgentOS-core</code>。
+            </p>
+          </div>
           <p className="text-sm text-muted-foreground">
-            App ID、App Secret 是密码，只能你从飞书后台复制后自己贴到 GitHub。我看不到你的飞书账号，也没法替你点保存。
+            Webhook、App Secret 是密码，只能你从飞书后台复制后自己贴到 GitHub。我看不到你的飞书账号，也没法替你点保存。
           </p>
         </CardContent>
       </Card>
