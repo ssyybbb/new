@@ -19,11 +19,11 @@ const secrets = [
     note: "同一页的 App Secret",
   },
   {
-    name: "GITHUB_ORG",
-    note: "要跟踪的 GitHub 组织名，例如 nodejs。和下一栏至少填一个",
+    name: "OSS_ORG",
+    note: "要跟踪的 GitHub 组织名。不要用 GITHUB_ORG，GitHub 不允许这个名字",
   },
   {
-    name: "GITHUB_REPOS",
+    name: "OSS_REPOS",
     note: "或者写成仓库列表：公司名/仓库名 公司名/另一个仓库",
   },
 ];

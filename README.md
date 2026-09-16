@@ -14,7 +14,7 @@
 2. 去 [飞书开放平台](https://open.feishu.cn/app) 创建应用 → 开通机器人 → 发布 → 把机器人拉进群 → 复制 App ID / App Secret
 3. 打开 GitHub 仓库 → Settings → Secrets and variables → Actions，添加：
    - Secret：`FEISHU_APP_ID`、`FEISHU_APP_SECRET`
-   - Variable：`GITHUB_ORG`（你们的 GitHub 组织名）或 `GITHUB_REPOS`
+   - Variable：`OSS_ORG`（你们的 GitHub 组织名）或 `OSS_REPOS`
 4. GitHub 仓库点 Actions →「每日开源日报」→ Run workflow。群里收到卡片就成功了
 
 之后每天北京时间约 09:00 自动发。

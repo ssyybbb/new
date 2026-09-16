@@ -77,11 +77,12 @@ function envSettingsOverlay(base: AppSettings): AppSettings {
   if (process.env.FEISHU_WEBHOOK_SECRET) {
     next.feishu.secret = process.env.FEISHU_WEBHOOK_SECRET;
   }
-  if (process.env.GITHUB_ORG) {
+  const org = process.env.OSS_ORG || process.env.GITHUB_ORG;
+  if (org) {
     next.sources.mode = "org";
-    next.sources.org = process.env.GITHUB_ORG;
+    next.sources.org = org;
   }
-  const envRepos = parseRepoList(process.env.GITHUB_REPOS);
+  const envRepos = parseRepoList(process.env.OSS_REPOS || process.env.GITHUB_REPOS);
   if (envRepos.length > 0) {
     next.sources.mode = "repos";
     next.sources.repos = envRepos;
