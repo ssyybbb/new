@@ -11,6 +11,11 @@ on:
     - cron: "45 0 * * *" # 08:45
     - cron: "55 0 * * *" # 08:55
   workflow_dispatch:
+    inputs:
+      force:
+        description: 即使今天已发送也再发一次
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ jobs:
     steps:
       - name: 今天已成功发送则跳过
         id: guard
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force != 'true')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
